@@ -2,8 +2,9 @@
 - [X] Work on thresholding the image
 - [X] Calibrate the thresholding to determine cell size
 - [X] convert everything to .py scripts
-
-- [ ] Apply YOLO, Inception 
+- [X] Create command-line options for running the script 
+- [ ] image processing/loading within the script
+- [ ] 
 - [ ] Apply SVM, SVC Clustering to determine grouping potentially
 - [ ] Create custom, small CNN 
 - [ ] Fast CNN?
