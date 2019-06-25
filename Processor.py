@@ -1,12 +1,17 @@
 import argparse
 import ML_Methods
+import pandas as pd
 
 def imaging_processor():
 
-	print("something")
+	stats = pd.read_pickle("./StandardizedImages/stats.pkl")
+
+
+	 
+	
 	#separate images, collect 
-	#gather db
 	#export image vectors to 
+	return 1
 
 if  __name__=="__main__":
 	#arguement parsing for options 
@@ -22,6 +27,7 @@ if  __name__=="__main__":
 	parser.add_argument("--custom",action = 'store_true' , dest= 'custom', default = False,  help = "increase output printing")
 
 	parser.add_argument("-iter", action = "store", dest = "iterations",default = 1,  help= "number of models")
+	parser.add_argument("-imsize", action = "store", dest = "imsize",default = 64,  help= "number of models")
 
 	results = parser.parse_args()
 	ml = ML_Methods.Methods(results.iterations , results.custom)
@@ -31,8 +37,16 @@ if  __name__=="__main__":
 	print("verbose: \t\t"+str(results.verbose))
 	print("# of models trained:\t"+ str(results.iterations))
 	print("custom parameters? \t" + str(results.custom))
-	print("verbose?\t\t" + str(results.verbose))
-	print("__________________________________________")
+	print("size of images(squared): \t" + str(results.imsize))
+
+	print("___________________________________________")
+	print("loading images for training...")
+	image_vector = imaging_processor()
+
+
+
+
+
 	if(results.verbose):
 		if(results.svc):
 			print("SVC model selected..")
