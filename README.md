@@ -3,8 +3,9 @@
 - [X] Calibrate the thresholding to determine cell size
 - [X] convert everything to .py scripts
 - [X] Create command-line options for running the script 
-- [ ] image processing/loading within the script
-- [ ] 
+- [X] image processing/loading within the script
+- [ ] Augment and distort images 
+- [ ] GANs to further augment data
 - [ ] Apply SVM, SVC Clustering to determine grouping potentially
 - [ ] Create custom, small CNN 
 - [ ] Fast CNN?
