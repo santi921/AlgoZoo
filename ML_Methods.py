@@ -2,21 +2,20 @@ import numpy as np
 import tensorflow as tf
 import sys
 import datetime
+import matplotlib.pyplot as plt
 
 from sklearn import svm 
 from sklearn import linear_model
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-
-import matplotlib.pyplot as plt
-
-import tensorflow as tf
-from tensorflow import keras
-from keras.utils import to_categorical
-from keras import regularizers
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 from sklearn.externals import joblib
+from sklearn.model_selection import cross_val_score
+
+from tensorflow import keras
+from keras.utils import to_categorical
+from keras import regularizers
 
 
 #from io import StringIO
@@ -77,7 +76,6 @@ class Methods:
 
 
 
-
 		
 	def robust_pca_method(self, image_vector, label_vector, parameters):
 		print("PCA")
@@ -89,7 +87,9 @@ class Methods:
 
 	def bayes_method(self):
 		print("bayes")
-
+	
+	def xgboost_method(self):
+		print("boost")
 
 	def svm_method(self, image_vector, label_vector, parameters):
 		print("SVM")
@@ -110,9 +110,11 @@ class Methods:
 
 		clf = RandomForestClassifier()
 		clf.fit(X_train,y_train)
+		
+
+
+		#model evaluation
 		y_pred = clf.predict(X_test)
-
-
 
 		#rf parameter definition 
 		parms = {}
@@ -126,25 +128,21 @@ class Methods:
 		conf2 = metrics.confusion_matrix(clf.predict(X_train), y_train)
 		print("test confusion: "+ str(conf))
 		print("train confusion: " + str(conf2))
-		
+
 		parms["false_poss_train"] =conf2[0][1]
 		parms["false_neg_train"] = conf2[1][0]
 
+		scores = cross_val_score(clf, image_vector, label_vector, cv=10)
+		print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 
-		#sklearn model saving 
 		name = "AlgorithmDB/rf_" + self.time_string() + ".pkl"
-		joblib.dump(clf, name)
-		self.save_model_to_db(name, parms)
+		#joblib.dump(clf, name)
+		#self.save_model_to_db(name, parms)
 
 		
 		
 	def nn_method(self, image_vector, label_vector, parameters):
 		
-		#config = tf.ConfigProto()
-		#config.gpu_options.allow_growth=True
-		#config.gpu_options.per_process_gpu_memory_fraction = 0.4
-
-		#sess = tf.Session(config=config)
 		sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 
 		# if (parameters.aug == True): path for 
@@ -187,6 +185,7 @@ class Methods:
 		#think about this more
 
 		if (int(self.dataset) == 2 or int(self.dataset) == 3):
+			#0.2 for eh results on dataset 2/3
 			label_vector = np.rint(label_vector + 0.2)
 			print("rounds here")
 
@@ -203,6 +202,7 @@ class Methods:
 			clf.fit(X_train, y_train)
 			accuracy_test.append(clf.score(X_test, y_test))
 			iterations.append(10**(n/2))
+			
 		plt.figure()
 		plt.plot(iterations, accuracy_test)
 		plt.xlabel("training iterations")
