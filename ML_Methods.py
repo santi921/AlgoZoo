@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import sys
+import datetime
 
 from sklearn import svm 
 from sklearn import linear_model
@@ -9,11 +10,14 @@ from sklearn.preprocessing import StandardScaler
 
 import matplotlib.pyplot as plt
 
+import tensorflow as tf
 from tensorflow import keras
 from keras.utils import to_categorical
 from keras import regularizers
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
+from sklearn.externals import joblib
+
 
 #from io import StringIO
 
@@ -58,37 +62,82 @@ class Methods:
 	####recordholding 
 
 
-	def save_model():
+#######in the future send these to a help class and import
+	def save_model_to_db(self, name, parms):
 		print("save model statistics, history, etc, type")
 
-	def parameter_generator():
+	def parameter_generator(self):
 		print("generates parameters for models")
+
+	def time_string(self):
+		now = datetime.datetime.now()
+		time_nice = str(now.year) +"-"+ str(now.month) +"-"+ str(now.day) +"-"+ str(now.hour) +"-"+ str(now.minute) +"-" + str(now.second)
+		return time_nice
 		
+
+
+
+
 		
 	def robust_pca_method(self, image_vector, label_vector, parameters):
 		print("PCA")
-	#def gans_method(self, image_vector, label_vector, parameters):
-	#	print("GANS")	
+
 	def cnn_method(self, image_vector, label_vector, parameters):
 		print("CNN")
 		print("add options for transfer learning")
+
+
 	def bayes_method(self):
 		print("bayes")
+
+
+	def svm_method(self, image_vector, label_vector, parameters):
+		print("SVM")
+
+
+
+
+
 	def random_forest_method(self, image_vector, label_vector, parameters):
 
 		if (int(self.dataset) == 2 or int(self.dataset) == 3):
 			label_vector = np.rint(label_vector)
+			print("percent positive: " + str(np.sum(label_vector)/len(label_vector)))
 
 		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
-		clf = RandomForestClassifier(n_jobs = 2, random_state=0)
+		
+
+
+		clf = RandomForestClassifier()
 		clf.fit(X_train,y_train)
 		y_pred = clf.predict(X_test)
-		print("Accuracy:", metrics.accuracy_score(y_test, y_pred))
 
-	def svm_method(self, image_vector, label_vector, parameters):
-		print("SVM")
-	
-	
+
+
+		#rf parameter definition 
+		parms = {}
+
+		#accuracy as a measure of goodness
+		parms['accuracy_train'] = metrics.accuracy_score(clf.predict(X_train), y_train)
+		parms['accuracy_trial'] = metrics.accuracy_score(y_test, y_pred)
+		
+		#confusion matrix for goodness with 0.5 accuracy
+		conf = metrics.confusion_matrix(y_test, y_pred)
+		conf2 = metrics.confusion_matrix(clf.predict(X_train), y_train)
+		print("test confusion: "+ str(conf))
+		print("train confusion: " + str(conf2))
+		
+		parms["false_poss_train"] =conf2[0][1]
+		parms["false_neg_train"] = conf2[1][0]
+
+
+		#sklearn model saving 
+		name = "AlgorithmDB/rf_" + self.time_string() + ".pkl"
+		joblib.dump(clf, name)
+		self.save_model_to_db(name, parms)
+
+		
+		
 	def nn_method(self, image_vector, label_vector, parameters):
 		
 		#config = tf.ConfigProto()
@@ -96,7 +145,7 @@ class Methods:
 		#config.gpu_options.per_process_gpu_memory_fraction = 0.4
 
 		#sess = tf.Session(config=config)
-
+		sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 
 		# if (parameters.aug == True): path for 
 		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
@@ -125,7 +174,7 @@ class Methods:
 		plt.ylabel("accuracy")
 		plt.title("Training Curve")
 		plt.show()
-		score = model.evaluate(X_test, y_test) #89% thus far
+		score = model.evaluate(X_test, y_test) 
 
 	def sgd_method(self, image_vector, label_vector, parameters):
 		# loss = "hinge", "log", "square_hinge", "preceptron", "squared loss"

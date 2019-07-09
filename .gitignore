@@ -1,8 +1,0 @@
-/__pychache__/
-/Tools/
-/images/
-/mnist/
-/StandardizedImages/
-dcgan_mnist.py
-acgan_mnist.py
-.ipynb_checkpoints

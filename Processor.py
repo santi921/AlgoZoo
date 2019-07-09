@@ -29,7 +29,6 @@ def imaging_processor(dataset, size = 128.):
 				
 	if (dataset == 3): 
 		#tempA = load_A(imagesize)
-		print("add dataset 1 loading")
 
 		list_images_B, list_label_images_B= Image_Tools.load_B(size)
 		list_images_A, list_label_images_A= Image_Tools.load_A(size)
@@ -139,7 +138,7 @@ if  __name__=="__main__":
 		print("custom parameters? \tFalse")
 	else:
 		print("custom parameters? \tTrue")
-	print("size of images: \t" + str(results.imsize))
+	print("size of ea. images: \t" + str(results.imsize))
 	print("Zoo of models? \t\t" + str(results.crazy))
 	#print("Dataset to be used:\t" + str(results.dataset))
 	print("___________________________________________")
