@@ -36,6 +36,9 @@ def imaging_processor(dataset, size = 128.):
 		list_images = np.concatenate((list_images_A,list_images_B))
 		list_label_images = np.concatenate((list_label_images_A,list_label_images_B))
 		return list_images, list_label_images
+
+	if (dataset ==4):
+		print("other microscopy images")
 	
 	 
 
