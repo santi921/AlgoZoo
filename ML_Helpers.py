@@ -3,6 +3,8 @@ from keras import backend as K
 from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score, confusion_matrix
 from sklearn.model_selection import cross_val_score
 import matplotlib.pyplot as plt
+from tensorflow import keras
+from keras import regularizers
 
 def recall_m( y_true, y_pred):
 	        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
@@ -96,3 +98,35 @@ def stats(clf,image_vector, label_vector, X_train, X_test, y_train, y_test):
 	plt.show()
 	
 	return parms
+
+
+
+def nn_flat():
+
+	model = keras.Sequential([
+		keras.layers.Flatten(data_format="channels_last"),
+	    keras.layers.Dense(128, activation="relu", kernel_regularizer=regularizers.l2(0.001)),
+   	    keras.layers.Dropout(0.3),
+	    keras.layers.Dense(64, activation="relu", kernel_regularizer=regularizers.l2(0.001)),
+	   	keras.layers.Dropout(0.4),
+	    keras.layers.Dense(16, activation="relu"),
+	    keras.layers.Dropout(0.3),
+	    keras.layers.Dense(1, activation="sigmoid")
+		])
+	return model
+
+def nn_basic():
+	model = keras.Sequential([
+	    keras.layers.Dense(128, activation="relu", kernel_regularizer=regularizers.l2(0.001)),
+   	    keras.layers.Dropout(0.3),
+	    keras.layers.Dense(64, activation="relu", kernel_regularizer=regularizers.l2(0.001)),
+	   	keras.layers.Dropout(0.4),
+	    keras.layers.Dense(16, activation="relu"),
+	    keras.layers.Dropout(0.3),
+	    keras.layers.Dense(1, activation="sigmoid")
+		])
+
+
+	return model
+
+

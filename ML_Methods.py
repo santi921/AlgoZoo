@@ -21,7 +21,7 @@ from keras.wrappers.scikit_learn import KerasClassifier
 from keras.preprocessing.image import ImageDataGenerator
 
 #from io import StringIO
-from ML_Helpers import stats, f1_loss, f1, f1_m, precision_m, recall_m
+from ML_Helpers import stats, f1_loss, f1, f1_m, precision_m, recall_m, nn_basic, nn_flat
 import Augmentor 
 
 class Methods: 
@@ -112,48 +112,50 @@ class Methods:
 		# epochs 
 		# activations 
 		
-		batch_size = 1
-		
+		batch_size = 100
+		epochs = 10
+
 		sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
-
-		model = keras.Sequential([
-	    keras.layers.Dense(128, activation="relu", kernel_regularizer=regularizers.l2(0.001)),
-   	    keras.layers.Dropout(0.3),
-	    keras.layers.Dense(64, activation="relu", kernel_regularizer=regularizers.l2(0.001)),
-	   	keras.layers.Dropout(0.4),
-	    keras.layers.Dense(16, activation="relu"),
-	    keras.layers.Dropout(0.3),
-	    keras.layers.Dense(1, activation="sigmoid")
-		])
-
-		opt = "adam"	
-		loss_func = f1_loss
-		loss_func = 'binary_crossentropy'
-		model.compile(optimizer=opt, loss= loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
-		#model.compile(optimizer=opt, loss= loss_func,  metrics=['accuracy'])
-	
-
 
 		label_vector = label_vector.astype(int)
 		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
+		train_len = len(y_train)
+		
 		if(self.aug == True):
+		
+			model = nn_flat()
+			opt = "adam"	
+			loss_func = f1_loss
+			loss_func = 'binary_crossentropy'	
+			model.compile(optimizer=opt, loss= loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
 
 
-			print("image shape: " + str(X_train[np.newaxis].shape))
+			print("image shape: " + str(X_train.shape))
 			print("label shape: " + str(y_train.shape))
 			
-			datagen = ImageDataGenerator(rotation_range=360, zoom_range=0.1, data_format = "channels_first")
-			#datagen.fit(X_train)
-			it = datagen.flow(X_train[np.newaxis].reshape(len(y_train), self.imsize,self.imsize,1), y_train, batch_size = batch_size)
-			history = model.fit_generator(it, steps_per_epoch = len(y_train) / batch_size, verbose = self.verbose, validation_data=(X_test, y_test))
+			p = Augmentor.Pipeline()
 
+			p.rotate(probability=0.5, max_left_rotation=2, max_right_rotation=2)
+			p.flip_left_right(probability=0.5)
+			p.flip_top_bottom(probability=0.5)
+			p.random_distortion(probability=0.3, grid_width=4, grid_height=4, magnitude=2)
+			
+			g = p.keras_generator_from_array(X_train, y_train, batch_size =batch_size)
+			#print("Shape of generated images" + str(np.shape(np.array(next(g)))))
+			history = model.fit_generator(g, steps_per_epoch = train_len/batch_size, epochs = epochs, verbose = 1)
+		
 		else: 
-			print("aug false")
 
-			#y_train = Augmentor.Pipeline.categorical_labels(y_train.astype(int))
-			#y_test = Augmentor.Pipeline.categorical_labels(y_test.astype(int))
-			history = model.fit(X_train,y_train , batch_size=batch_size, epochs=200, verbose = self.verbose)
+			model = nn_basic()
+			opt = "adam"	
+			loss_func = f1_loss
+			loss_func = 'binary_crossentropy'
+			
+			model.compile(optimizer=opt, loss= loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
+			#model.compile(optimizer=opt, loss= loss_func,  metrics=['accuracy'])
 
+			history = model.fit(X_train,y_train , batch_size = batch_size, epochs = epochs, verbose = self.verbose)
+		
 
 
 		name = "AlgorithmDB/nn_" + self.time_string() + ".pkl"
@@ -164,13 +166,13 @@ class Methods:
 
 		#params["type"] = "tensorflow"
 
-		#plt.plot(history.history["accuracy"])
-		#plt.xlabel("epochs")
-		#plt.ylabel("accuracy")
-		#plt.title("Training Curve")
-		#plt.show()
-		#score = model.evaluate(X_test, y_test) 
-		#print(score)
+		plt.plot(history.history["acc"])
+		plt.xlabel("epochs")
+		plt.ylabel("acc")
+		plt.title("Training Curve")
+		plt.show()
+		score = model.evaluate(X_test, y_test) 
+		print(score)
 
 	def sgd_method(self, image_vector, label_vector, parameters):
 		
