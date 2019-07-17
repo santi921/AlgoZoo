@@ -1,43 +1,43 @@
-import argparse
-import ML_Methods
+import os, json, argparse
+import ML_Methods, Image_Tools
 import pandas as pd
-import json
-import os
 from PIL import Image 
 import numpy as np
 import matplotlib.pyplot as plt
-import Image_Tools
 
 #image processor and retrival might be made into a separate module 
 
 
 
-def imaging_processor(dataset, size = 128.):
+def imaging_processor(dataset, size = 128., tf_aug = False):
 
 	list_label_images= [] 
 	list_images = []
 
 	dataset = int(dataset)
 	print("dataset number: \t" + str(dataset))
+	
+
 
 	if (dataset == 1):		
-		return Image_Tools.load_A(size)	
+		return Image_Tools.load_A(size, tf_aug)
 
 	if (dataset == 2):
-		return Image_Tools.load_B(size)
-
+		return Image_Tools.load_B(size, tf_aug)
 				
 	if (dataset == 3): 
 		#tempA = load_A(imagesize)
+		list_images_B, list_label_images_B= Image_Tools.load_B(size, tf_aug)
+		list_images_A, list_label_images_A= Image_Tools.load_A(size, tf_aug)
 
-		list_images_B, list_label_images_B= Image_Tools.load_B(size)
-		list_images_A, list_label_images_A= Image_Tools.load_A(size)
-
+		print(np.shape(list_images_B))
+		print(np.shape(list_images_A))
 		list_images = np.concatenate((list_images_A,list_images_B))
 		list_label_images = np.concatenate((list_label_images_A,list_label_images_B))
+		
 		return list_images, list_label_images
 
-	if (dataset ==4):
+	if (dataset == 4):
 		print("other microscopy images")
 	
 	 
@@ -72,9 +72,9 @@ def model_branch(results, image_vector, label_vector):
 			ml = ML_Methods.Methods(results)
 			ml.iterator(image_vector, label_vector)
 			
-		elif(results.robust):
-			print("RobustPCA model selected...")
-			results.type_train = "robust_pca"
+		elif(results.xgb):
+			print("xgb model selected...")
+			results.type_train = "xgb"
 			ml = ML_Methods.Methods(results)
 			ml.iterator(image_vector, label_vector)
 
@@ -105,13 +105,15 @@ if  __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Model Selector and Parameters')
 
 	parser.add_argument("-v","--verbose", action = 'store_true' , dest= 'verbose', default = False,  help = "increase output printing")
+	
 	parser.add_argument("--sgd", action = 'store_true' , dest= 'sgd', default = False,  help = "increase output printing")
 	parser.add_argument("--svm", action = 'store_true' , dest= 'svm', default = False,  help = "increase output printing")
 	parser.add_argument("--nn", action = 'store_true' , dest= 'nn', default = False,  help = "increase output printing")
 	parser.add_argument("--cnn", action = 'store_true' , dest= 'cnn', default = False,  help = "increase output printing")
-	parser.add_argument("--robust",action = 'store_true' , dest= 'robust', default = False,  help = "increase output printing")
-	parser.add_argument("--gans",action = 'store_true' , dest= 'gans', default = False,  help = "increase output printing")
+	parser.add_argument("--xgb",action = 'store_true' , dest= 'xgb', default = False,  help = "increase output printing")
+	#parser.add_argument("--gans",action = 'store_true' , dest= 'gans', default = False,  help = "increase output printing")
 	parser.add_argument("--rf",action = 'store_true' , dest= 'rf', default = False,  help = "random forest")
+	
 	parser.add_argument("--gocrazy",action = 'store_true' , dest= 'crazy', default = False,  help = "zoo of random models")
 
 	parser.add_argument("--refinesgd", action = 'store_true' , dest= 'sgd', default = False,  help = "increase output printing")
@@ -148,8 +150,12 @@ if  __name__=="__main__":
 	print("loading images for training...")
 	############## maybe process this once and simply load a database/numpy array of it 
 	#add_distrorion_factor
+
+	tf_aug = False
+	if ((results.cnn or results.nn) and results.aug):
+		tf_aug = True
 	
-	image_vector, label_vector = imaging_processor(results.dataset,results.imsize)
+	image_vector, label_vector = imaging_processor(results.dataset,results.imsize, tf_aug)
 	####temp
 
 	##############
