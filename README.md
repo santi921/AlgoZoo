@@ -1,17 +1,12 @@
 # CancerImaging
-
-
-This is a module that aims to facilite the discovery of effective algorithms for detecting malaties in low-resolution medical images. The dependencies for this include:
-
-- Python 3.5 
-- Numpy 
-- joblib 0.13.2
-- h5py 2.9.0
-- pandas 0.24.2
-- Pillow 6.0.0
-- Augmentor 0.2.3
-- xgboost 0.90
-- tensorflow-gpu 1.14.0/ tensorflow 
-- scipy 1.3.0 
-
-
+- [X] Work on thresholding the image
+- [X] Calibrate the thresholding to determine cell size
+- [X] convert everything to .py scripts
+- [X] Create command-line options for running the script 
+- [X] image processing/loading within the script
+- [ ] Augment and distort images 
+- [ ] GANs to further augment data
+- [ ] Apply SVM, SVC Clustering to determine grouping potentially
+- [ ] Create custom, small CNN 
+- [ ] Fast CNN?
+- [ ] R-CNN

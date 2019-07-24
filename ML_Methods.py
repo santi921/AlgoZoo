@@ -1,28 +1,31 @@
+
+
+import sys
+import time
+import datetime
 import numpy as np
 import tensorflow as tf
-import sys
-import datetime
 import matplotlib.pyplot as plt
+import pandas as pd
+import Augmentor 
+import joblib
 
-from sklearn import svm 
-from sklearn import linear_model
-from sklearn.model_selection import train_test_split
+from sklearn import svm, linear_model, metrics
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
-from sklearn import metrics
-from sklearn.externals import joblib
-from sklearn.model_selection import cross_val_score
 from sklearn.metrics import roc_auc_score, roc_curve, auc
+from sklearn.naive_bayes import ComplementNB
+from sklearn import ensemble
+from sklearn.preprocessing import MinMaxScaler
 
-
-from keras import backend as K
-from keras.wrappers.scikit_learn import KerasClassifier
-from tensorflow import keras
-from keras.utils import to_categorical
 from keras import regularizers
+from keras.utils import to_categorical
+from keras.wrappers.scikit_learn import KerasClassifier
+from keras.preprocessing.image import ImageDataGenerator
 
 
-#from io import StringIO
+from ML_Helpers import stats, f1_loss, f1, f1_m, precision_m, recall_m, nn_generator, cnn_basic
 
 class Methods: 
 
@@ -36,242 +39,393 @@ class Methods:
 		self.dataset = results.dataset
 		self.transfer = results.transfer
 		self.dataset = results.dataset
+		self.aug = results.aug
+		self.imsize = results.imsize
 		#opens global database of models that have worked 
 
 	def iterator(self, image_vector, label_vector):
 		#add reasonable parameter ranges for all of these 
 		for i in range(self.iterations):
-			
+			print("_____NEW MODEL NOW TRAINING_____")	
 			if(self.type_train == "nn"):
 				self.nn_method(image_vector, label_vector, self.parameters )
 			elif(self.type_train == "sgd"):
 				self.sgd_method(image_vector, label_vector, self.parameters)
 			elif(self.type_train == "svm"):
 				self.svm_method(image_vector, label_vector, self.parameters)
-			elif(self.type_train == "robust_pca"):
-				self.robust_pca_method(image_vector, label_vector, self.parameters)
+			elif(self.type_train == "xgb"):
+				self.xgboost_method(image_vector, label_vector, self.parameters)
 			elif(self.type_train == "cnn"):
 				self.cnn_method(image_vector, label_vector, self.parameters)
-			elif(self.type_train == "gans"):
-				self.gans_method(image_vector, label_vector, self.parameters)
-			elif(self.type_train == "bayes"):
-				self.bayes_method(image_vector, label_vector, self.parameters)
 			elif(self.type_train == "rf"):
 				self.random_forest_method(image_vector, label_vector, self.parameters)
 			else:
 				print("INVALID MODEL TYPE")
-	####idea: create a global accuracy rating, only save models that pass a threshold or are
-	####recordholding 
+	
+	def save_model_to_db(self, parms):
+		#opens database and deposits statistics to database
+		temp = pd.DataFrame.from_dict(parms)
+		master = pd.read_pickle("./Algorithm_DB/***statistics_DONTDELETE.pkl")
+		master = master.append(temp, sort=True)
+		master.to_pickle("./Algorithm_DB/***statistics_DONTDELETE.pkl")
 
-#######in the future send these to a help class and import
-	def save_model_to_db(self, name, parms):
-		print("save model statistics, history, etc, type")
+	def parameter_generator(self, range_min, range_max, type_number = "not_exp"):
+		#general parameter generator used heavily below
+		num = np.random.random() * (range_max- range_min)  + range_min
 
-	def parameter_generator(self):
-		print("generates parameters for models")
+		if (type_number == "exp"):
+			num = 10**num
+		return num
 
 	def time_string(self):
+		#used to generate unique names for the models
 		now = datetime.datetime.now()
 		time_nice = str(now.year) +"-"+ str(now.month) +"-"+ str(now.day) +"-"+ str(now.hour) +"-"+ str(now.minute) +"-" + str(now.second)
 		return time_nice
-		
 
 
-	#use case
-	#model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['acc',f1_m,precision_m, recall_m])
-	#loss, accuracy, f1_score, precision, recall = model.evaluate(Xtest, ytest, verbose=0)
-
-
-
-	def recall_m(self, y_true, y_pred):
-	        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-	        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-	        recall = true_positives / (possible_positives + K.epsilon())
-	        return recall
-
-	def precision_m(self, y_true, y_pred):
-	        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-	        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-	        precision = true_positives / (predicted_positives + K.epsilon())
-	        return precision
-
-	def f1_m(self, y_true, y_pred):
-	    precision = self.precision_m( y_true, y_pred)
-	    recall = self.recall_m(y_true, y_pred)
-	    return 2*((precision*recall)/(precision+recall+K.epsilon()))	
-
-	def stats(self, clf,image_vector, label_vector, X_train, X_test, y_train, y_test):
-
-		y_pred = clf.predict(X_test)
-		probs = clf.predict_proba(X_test)
-		preds = probs[:,1]
-		print(preds[0:50])
-		#rf parameter definition 
-		parms = {}
-
-		#accuracy as a measure of goodness
-		parms['accuracy_train'] = metrics.accuracy_score(clf.predict(X_train), y_train)
-		parms['accuracy_trial'] = metrics.accuracy_score(y_test, y_pred)
-		
-		#confusion matrix for goodness with 0.5 accuracy
-		conf = metrics.confusion_matrix(y_test, y_pred)
-		conf2 = metrics.confusion_matrix(clf.predict(X_train), y_train)
-		print("test confusion: "+ str(conf))
-		print("train confusion: " + str(conf2))
-
-		parms["false_poss_train_50"] =conf2[0][1]
-		parms["false_neg_train_50"] = conf2[1][0]
-
-		scores = cross_val_score(clf, image_vector, label_vector, cv=8)
-		print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
-		parms["cross_score_mean"] = scores.mean()
-		parms["cross_score_std"] = scores.std()
-		
-		fpr, tpr, threshold = roc_curve(y_test, preds)
-		roc_auc = auc(fpr, tpr)
-
-		print("AUC ROC: "+ str(roc_auc_score(y_test, preds)))
-		# method I: plt
-		
-		plt.title('Receiver Operating Characteristic')
-		plt.plot(fpr, tpr, 'b', label = 'AUC = %0.2f' % roc_auc)
-		plt.legend(loc = 'lower right')
-		plt.plot([0, 1], [0, 1],'r--')
-		plt.xlim([0, 1])
-		plt.ylim([0, 1])
-		plt.ylabel('True Positive Rate')
-		plt.xlabel('False Positive Rate')
-		plt.show()
-		
-		return parms
-
-
-		
-
-
-
-
-
-	def random_forest_method(self, image_vector, label_vector, parameters):
-		# n_estimators = 50
-		# max_depth = 5
-		# max_features = 1
-		# verbose = 0
-		
-
-		if (int(self.dataset) == 2 or int(self.dataset) == 3):
-			label_vector = np.rint(label_vector)
-			print("percent positive: " + str(np.sum(label_vector)/len(label_vector)))
-
-		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
-		clf = RandomForestClassifier(n_estimators = 50, n_jobs=10)
-		clf.fit(X_train,y_train)
-
-		params = self.stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test)
-		
-		name = "AlgorithmDB/rf_" + self.time_string() + ".pkl"
-		#joblib.dump(clf, name)
-		#self.save_model_to_db(name, parms)
-
-	def cnn_method(self, image_vector, label_vector, parameters):
-		print("CNN")
-		print("add options for transfer learning")
-
+	
 	def nn_method(self, image_vector, label_vector, parameters):
+		# l2
+		# loss
+		# dropout 
+		# opt 
+		# batch_size
+		# epochs 
+		# activations 
 		
+		batch_size = 10
+		epochs = 100
+		opt = "adam"	
+		loss_func = f1_loss
+		loss_func = 'binary_crossentropy'
+		
+		params = {}
+		temp_parameters = [[epochs, batch_size, opt, loss_func]]
+
 		sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 
+		label_vector = label_vector.astype(int)
 		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
+		train_len = len(y_train)
+		
+		if(self.aug == True):
+			#abstract this so make it more possible to make more custom architectures
+			model, pars = nn_generator("wide", 3, flat = True)
+			temp_parameters[0].append(pars)
 
-		model = keras.Sequential([
-	    keras.layers.Dense(128, activation="relu", kernel_regularizer=regularizers.l2(0.001)),
-   	    keras.layers.Dropout(0.3),
-	    keras.layers.Dense(64, activation="relu", kernel_regularizer=regularizers.l2(0.001)),
-	   	keras.layers.Dropout(0.4),
-	    keras.layers.Dense(16, activation="relu"),
-	    keras.layers.Dropout(0.3),
-	    keras.layers.Dense(1, activation="sigmoid")
-		])
+			model.compile(optimizer=opt, loss= loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
+			
+			p = Augmentor.Pipeline()
+			p.rotate(probability=0.5, max_left_rotation=2, max_right_rotation=2)
+			p.flip_left_right(probability=0.5)
+			p.flip_top_bottom(probability=0.5)
+			p.random_distortion(probability=0.3, grid_width=4, grid_height=4, magnitude=2)
+			
+			g = p.keras_generator_from_array(X_train, y_train, batch_size =batch_size)
 
-		opt = "adam"
-		model.compile(optimizer=opt, loss='binary_crossentropy',  metrics=['acc',self.f1_m, self.precision_m, self.recall_m])
+			t1 = time.time()
+			history = model.fit_generator(g, steps_per_epoch = train_len/batch_size, epochs = epochs, verbose = 1)
+			params["train_time"] = time.time() - t1
 
-		history = model.fit(X_train,y_train , batch_size=50, epochs=20, verbose = self.verbose)
+		
+		else: 
+			#make wider parameters or generate them 
+			model, pars = nn_generator("narrow", 3, flat = False)
+			temp_parameters[0].append(pars)
+			
+			model.compile(optimizer=opt, loss = loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
+			#model.compile(optimizer=opt, loss= loss_func,  metrics=['accuracy'])
+
+			t1 = time.time()
+			history = model.fit(X_train,y_train , batch_size = batch_size, epochs = epochs, verbose = self.verbose)
+			params["train_time"] = time.time() - t1
+
 
 		name = "AlgorithmDB/nn_" + self.time_string() + ".pkl"
 
-
-		###figure out tensofrlow statistics
-		#self.save_model_to_db(name, parms)
-		plt.plot(history.history["acc"])
-		plt.xlabel("epochs")
-		plt.ylabel("accuracy")
-		plt.title("Training Curve")
-		plt.show()
-		score = model.evaluate(X_test, y_test) 
-		print(score)
+		params = stats(model, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
+		
+		params["dataset"] = self.dataset
+		params["ref"] = name 
+		params["parameters"] = temp_parameters
+		params["aug"]  = self.aug
+		params["type"] = "nn"
+		
+		self.save_model_to_db(params)	
+		#add model dump beyond certain parameters
 
 	def sgd_method(self, image_vector, label_vector, parameters):
 		
-		# loss = "hinge", "log", "square_hinge", "preceptron", "squared loss"
-		# max_iter = epochs
-		# alpha = 0.0001
-		# verbose - 0
-		# tol = 1e-3
+		# loss 			- log is reasonable "hinge", "log", "square_hinge", "preceptron", "squared loss"
+		# max_iter 		- "epochs" def 1000
+		# alpha 		- rate of learning/change def 0.0001 
+		# verbose 		- verbose def 0  
+		# tol 			- tolerances before premature stop def 1e-3
 
+		#full parameter generator
+		alpha = self.parameter_generator(-3,-8, "exp")
+		max_iter=self.parameter_generator(3,6,"exp")
+		tol= self.parameter_generator(-3,-8,"exp")
+		loss_array = ['log', 'hinge','preceptron','squared_loss']
+		loss = loss_array[np.random.randint(0, 4)]
+		
+		#save parameters generated
+		temp_parameters = [[loss, alpha, max_iter, tol]]
+
+		#discritize data
 		if (int(self.dataset) == 2 or int(self.dataset) == 3):
 			#0.2 for eh results on dataset 2/3
 			label_vector = np.rint(label_vector + 0.2)
-			
+		#split
 		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
 
-
-		clf = linear_model.SGDClassifier(loss = 'log',alpha = 0.000000001, max_iter=100000, tol=1e-8, early_stopping= False)	
+		#define model
+		clf = linear_model.SGDClassifier(loss = 'log',alpha = alpha, max_iter=max_iter, tol=tol, early_stopping= False)	
+			
+		#extract training time
+		t1 = time.time()
 		clf.fit(X_train, y_train)
-		
-		params = self.stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test)
-		
-		#name = "AlgorithmDB/sgd_" + self.time_string() + ".pkl"
+		params["train_time"] = time.time() -t1
+
+		#extract statistics
+		params = stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, t2-t1)
+		name = "Algorithm_DB/sgd_" + self.time_string() + ".pkl"
+
+		#save parameters to dictionary
+		params["dataset"] = self.dataset
+		params["ref"] = name 
+		params["parameters"] = temp_parameters
+		params["aug"]  = self.aug
+		params["type"] = "sgd"
+		params["imsize"] = self.imsize
+
 		#joblib.dump(clf, name)
-		#self.save_model_to_db(name, parms)
-
-
-
-
-
-
-	def bayes_method(self):
-		print("bayes")
+		self.save_model_to_db(params)	
 	
-	def xgboost_method(self):
-		print("boost")
-
 	def svm_method(self, image_vector, label_vector, parameters):
 		###parameters####
-		#C 					- penalty def 1.0
+		# C 				- penalty def 1.0
 		# kernel function 	- linear, rbf, poly, sigmoid, precomputed
 		# degree			- of poly def = 3
-		# gamma 			- float, def is 1/features for rbf, ,poly, sigmoid 
+		# gamma 			- float, def is 1/features for rbf ,poly, sigmoid 
 		# coef0				- def 0.0 for poly, sigmoid
-		#tol 				- early stopping, def = 1e-3
-		#class_weight		- use to adjust class weight, USE {dict, 'balanced'}
-		#verbose			- def 0 
+		# tol 				- early stopping, def = 1e-3
+		# class_weight		- use to adjust class weight, USE {dict, 'balanced'}
+		# verbose			- def 0 
 
+		loss_array 	= ['linear','rbf','poly','sigmoid']
+		loss 		= loss_array[np.random.randint(0, 3)]
+		C 			= self.parameter_generator(5,-5,"exp")
+		max_iter 	=  self.parameter_generator(3,6,"exp")
+		degree 		= np.random.randint(3, 10)		
+		tol 		= self.parameter_generator(-3,-8,"exp")
+		coef0 		= 0
+		gamma 		= 0
 		
+		params = {}
+		temp_parameters = [[loss, C, degree, gamma, coef0, tol]]
 
 		if (int(self.dataset) == 2 or int(self.dataset) == 3):
 			label_vector = np.rint(label_vector)
-			print("percent positive: " + str(np.sum(label_vector)/len(label_vector)))
+			#print("percent positive: " + str(np.sum(label_vector)/len(label_vector)))
+		#split
+		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)	
+		scaling = MinMaxScaler(feature_range=(-1,1)).fit(X_train)
+		X_train = scaling.transform(X_train)
+		X_test = scaling.transform(X_test)
+		#TODO PARAMETERS HERE
+		if(loss == "rbf"):
+			clf = svm.SVC(kernel = loss, C = C, probability = True, tol = tol,verbose = self.verbose)		
+		elif(loss == "poly"):
+			clf = svm.SVC(kernel = loss, C = C, probability = True, tol = tol,verbose = self.verbose)		
+		elif(loss == "sigmoid"):
+			clf = svm.SVC(kernel = loss, C = C, probability = True, tol = tol,verbose = self.verbose)		
+		else:
+			clf = svm.SVC(kernel = loss, C = C, probability = True, tol = tol,verbose = self.verbose)		
 
-		clf = svm.SVC(verbose = 1, kernel = "linear")
-		print("classifier created")
-		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
-		print("data split")
+		#training time
+		t1 = time.time()
 		clf.fit(X_train, y_train)
-		print("model trained")
-		print("Accuracy on test metric: " + str(metrics.accuracy_score(clf.predict(X_test), y_test)))
-		scores = cross_val_score(clf, image_vector, label_vector, cv=8)
-		print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
+		params["train_time"] = time.time() - t1
 
-	def robust_pca_method(self, image_vector, label_vector, parameters):
-		print("PCA")
+		params = stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
+		name = "Algorithm_DB/svm_" + self.time_string() + ".pkl"
+
+		params["dataset"] 		= self.dataset
+		params["ref"] 			= name 
+		params["parameters"] 	= temp_parameters
+		params["aug"]  			= self.aug
+		params["type"] 			= "svm"
+
+		name = "Algorithm_DB/svm_" + self.time_string() + ".pkl"
+
+		#joblib.dump(clf, name)
+		self.save_model_to_db(params)
+
+	def cnn_method(self, image_vector, label_vector, parameters):
+		# l2
+		# loss
+		# dropout 
+		# opt 
+		# batch_size
+		# epochs 
+		# activations 
+		
+		batch_size = 10
+		epochs = 100
+
+		opt = "adam"	
+		loss_func = f1_loss
+		loss_func = 'binary_crossentropy'
+		
+		params = {}
+		temp_parameters = [[opt, loss_func, epochs, batch_size]]
+
+		sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+
+		label_vector = label_vector.astype(int)
+		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
+		
+		#train_len = len(y_train)
+
+		"""
+		#if(self.aug == True):
+			#abstract this so make it more possible to make more custom architectures
+			model, pars = cnn_basic("wide", 3, flat = True)
+			temp_parameters[0].append(pars)
+
+			model.compile(optimizer=opt, loss= loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
+			p = Augmentor.Pipeline()
+
+			p.rotate(probability=0.5, max_left_rotation=2, max_right_rotation=2)
+			p.flip_left_right(probability=0.5)
+			p.flip_top_bottom(probability=0.5)
+			p.random_distortion(probability=0.3, grid_width=4, grid_height=4, magnitude=2)
+			
+			g = p.keras_generator_from_array(X_train, y_train, batch_size =batch_size)
+
+			t1 = time.time()
+			history = model.fit_generator(g, steps_per_epoch = train_len/batch_size, epochs = epochs, verbose = 1)
+			params["train_time"] = time.time() - t1
+
+		"""
+		#else: 
+		#make wider parameters or generate them 
+		model = cnn_basic(self.imsize)
+		#model, pars = nn_generator("narrow", 3, flat = False)
+		#temp_parameters[0].append(pars)
+		
+		model.compile(optimizer=opt, loss = loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
+		#model.compile(optimizer=opt, loss= loss_func,  metrics=['accuracy'])
+
+		t1 = time.time()
+		history = model.fit(X_train.reshape(-1,self.imsize, self.imsize, 1),y_train , batch_size = batch_size, epochs = epochs, verbose = self.verbose)
+		params["train_time"] = time.time() - t1
+		
+
+		name = "AlgorithmDB/cnn_" + self.time_string() + ".pkl"
+
+		params = stats(model, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
+		print(params)
+		"""
+		#params["dataset"] = self.dataset
+		#params["ref"] = name 
+		#params["parameters"] = temp_parameters
+		#params["aug"]  = self.aug
+		#params["type"] = "cnn"
+		
+		self.save_model_to_db(params)	
+		#add model dump beyond certain parameters
+		"""
+
+	def xgboost_method(self, image_vector, label_vector, parameters):
+		###Parameters###
+		# learning_rate 		learning rate for iterations def 0.01
+		# max_depth 			tree depth def 4
+		# subsample 			percentage of samples used in any round def 0.8
+		# colsample_bytree 		percentage of features used per tree def 1
+		# n_estimators 			number of trees to build def 100
+		# objective 			loss function def "binary:logistic", "binary:logitraw", "binary:hinge"
+		# gamma  				controls tree splitting, def 0 
+		# alpha = L1 			l1 regularization def 0 
+		# lambda = l2 			l2 regularization def 0
+		# reg_alpha = 0.3
+		# tol  					tolerance def 1e-3
+		# silent = false
+
+
+		objective ="binary:logistic"
+		colsample_bytree = 0.8
+		learning_rate = 0.1
+		n_estimators = 100
+		alpha = 0
+		max_depth = 10
+		lamb = 0
+		gamma = 0
+		n_jobs = 1
+		subsample = 1
+		tol = 1e-4
+
+
+		if (int(self.dataset) == 2 or int(self.dataset) == 3):
+			label_vector = np.rint(label_vector)
+			#print("percent positive: " + str(np.sum(label_vector)/len(label_vector)))
+
+
+		temp_parameters = {"objective":objective, "learning_rate": learning_rate, "n_estimators": n_estimators, "max_depth": max_depth,"colsample_bytree": colsample_bytree, "alpha": alpha, "gamma":gamma, "lambda":lamb, "subsample": subsample}
+		#temp_parameters = {'objective':'binary:logistic', 'n_estimators':2}
+
+		#xg_clas = XGBClassifier()
+		gb = ensemble.GradientBoostingClassifier(n_estimators=n_estimators, random_state=0, verbose =1)
+		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)	
+		
+		t1 = time.time()
+		gb.fit(X_train,y_train)
+		params["train_len"] = time.time() - t1
+		name = "Algorithm_DB/xgb_" + self.time_string() + ".pkl"
+
+
+		params = stats(gb, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
+		params["dataset"] = self.dataset
+		params["ref"] = name 
+		params["parameters"] = temp_parameters
+		params["aug"]  = False
+		params["type"] = "xgb"
+
+
+		#joblib.dump(clf, name)
+		#self.save_model_to_db(params)
+
+	def random_forest_method(self, image_vector, label_vector, parameters):
+			# n_estimators 			number of estimators, def 50
+			# max_depth 			depth of decision trees, def 5
+			# max_features 			number of features, def 1
+			# verbose 				def 0
+			
+			#define baseline values for each term 
+
+
+			#these algorithms require discrete labels
+			if (int(self.dataset) == 2 or int(self.dataset) == 3):
+				label_vector = np.rint(label_vector)
+				print("percent positive: " + str(np.sum(label_vector)/len(label_vector)))
+
+			X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
+
+			clf = RandomForestClassifier(n_estimators = 50, n_jobs=10)
+
+			#obtaining training time
+			t1 = time.time()
+			clf.fit(X_train,y_train)
+			params["train_time"] = time.time() - t1
+			#generate vital stats
+			params = self.stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
+			#unique name identifier
+			name = "AlgorithmDB/rf_" + self.time_string() + ".pkl"
+			#joblib.dump(clf, name)comments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zah
+			#self.save_model_to_db(name, parms)
+	def resnet_method(self, image_vector, label_vector, parameters):
+		print("import resnet")
+	def lenet_method(self, image_vector, label_vector, parameters):
+		print("import linnet")
