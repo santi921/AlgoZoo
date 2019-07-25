@@ -1,4 +1,3 @@
-
 import os
 import Augmentor 
 import numpy as np 
@@ -6,7 +5,6 @@ import pandas as pd
 from PIL import Image 
 import matplotlib.pyplot as plt
 from scipy.ndimage.filters import gaussian_filter
-
 
 def load_A(size = 128, tf_aug = False):
 	stats = pd.read_pickle("./StandardizedImages/stats.pkl")
@@ -39,7 +37,6 @@ def load_A(size = 128, tf_aug = False):
 	list_images = np.array(list_images)/255
 
 	return list_images, list_label_images
-
 
 def load_B(size = 128., tf_aug = False):
 	dir_B = "./images/OnlineDatabases/DatasetB/"

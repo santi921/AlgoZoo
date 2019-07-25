@@ -1,10 +1,7 @@
-
-
 import sys
 import time
 import datetime
 import numpy as np
-import tensorflow as tf
 import matplotlib.pyplot as plt
 import pandas as pd
 import Augmentor 
@@ -19,13 +16,9 @@ from sklearn.naive_bayes import ComplementNB
 from sklearn import ensemble
 from sklearn.preprocessing import MinMaxScaler
 
-from keras import regularizers
-from keras.utils import to_categorical
-from keras.wrappers.scikit_learn import KerasClassifier
-from keras.preprocessing.image import ImageDataGenerator
 
 
-from ML_Helpers import stats, f1_loss, f1, f1_m, precision_m, recall_m, nn_generator, cnn_basic
+from ML_Helpers_No_TF import stats
 
 class Methods: 
 
@@ -47,16 +40,12 @@ class Methods:
 		#add reasonable parameter ranges for all of these 
 		for i in range(self.iterations):
 			print("_____NEW MODEL NOW TRAINING_____")	
-			if(self.type_train == "nn"):
-				self.nn_method(image_vector, label_vector, self.parameters )
-			elif(self.type_train == "sgd"):
+			if(self.type_train == "sgd"):
 				self.sgd_method(image_vector, label_vector, self.parameters)
 			elif(self.type_train == "svm"):
 				self.svm_method(image_vector, label_vector, self.parameters)
 			elif(self.type_train == "xgb"):
 				self.xgboost_method(image_vector, label_vector, self.parameters)
-			elif(self.type_train == "cnn"):
-				self.cnn_method(image_vector, label_vector, self.parameters)
 			elif(self.type_train == "rf"):
 				self.random_forest_method(image_vector, label_vector, self.parameters)
 			else:
@@ -83,78 +72,6 @@ class Methods:
 		time_nice = str(now.year) +"-"+ str(now.month) +"-"+ str(now.day) +"-"+ str(now.hour) +"-"+ str(now.minute) +"-" + str(now.second)
 		return time_nice
 
-
-	
-	def nn_method(self, image_vector, label_vector, parameters):
-		# l2
-		# loss
-		# dropout 
-		# opt 
-		# batch_size
-		# epochs 
-		# activations 
-		
-		batch_size = 10
-		epochs = 100
-		opt = "adam"	
-		loss_func = f1_loss
-		loss_func = 'binary_crossentropy'
-		
-		params = {}
-		temp_parameters = [[epochs, batch_size, opt, loss_func]]
-
-		sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
-
-		label_vector = label_vector.astype(int)
-		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
-		train_len = len(y_train)
-		
-		if(self.aug == True):
-			#abstract this so make it more possible to make more custom architectures
-			model, pars = nn_generator("wide", 3, flat = True)
-			temp_parameters[0].append(pars)
-
-			model.compile(optimizer=opt, loss= loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
-			
-			p = Augmentor.Pipeline()
-			p.rotate(probability=0.5, max_left_rotation=2, max_right_rotation=2)
-			p.flip_left_right(probability=0.5)
-			p.flip_top_bottom(probability=0.5)
-			p.random_distortion(probability=0.3, grid_width=4, grid_height=4, magnitude=2)
-			
-			g = p.keras_generator_from_array(X_train, y_train, batch_size =batch_size)
-
-			t1 = time.time()
-			history = model.fit_generator(g, steps_per_epoch = train_len/batch_size, epochs = epochs, verbose = 1)
-			params["train_time"] = time.time() - t1
-
-		
-		else: 
-			#make wider parameters or generate them 
-			model, pars = nn_generator("narrow", 3, flat = False)
-			temp_parameters[0].append(pars)
-			
-			model.compile(optimizer=opt, loss = loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
-			#model.compile(optimizer=opt, loss= loss_func,  metrics=['accuracy'])
-
-			t1 = time.time()
-			history = model.fit(X_train,y_train , batch_size = batch_size, epochs = epochs, verbose = self.verbose)
-			params["train_time"] = time.time() - t1
-
-
-		name = "AlgorithmDB/nn_" + self.time_string() + ".pkl"
-
-		params = stats(model, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
-		
-		params["dataset"] = self.dataset
-		params["ref"] = name 
-		params["parameters"] = temp_parameters
-		params["aug"]  = self.aug
-		params["type"] = "nn"
-		
-		self.save_model_to_db(params)	
-		#add model dump beyond certain parameters
-
 	def sgd_method(self, image_vector, label_vector, parameters):
 		
 		# loss 			- log is reasonable "hinge", "log", "square_hinge", "preceptron", "squared loss"
@@ -165,14 +82,15 @@ class Methods:
 
 		#full parameter generator
 		alpha 		= self.parameter_generator(-3,-8, "exp")
-		max_iter 	=self.parameter_generator(3,6,"exp")
+		max_iter	= self.parameter_generator(3,6,"exp")
 		tol 		= self.parameter_generator(-3,-8,"exp")
 		loss_array 	= ['log', 'hinge','preceptron','squared_loss']
 		loss 		= loss_array[np.random.randint(0, 4)]
 		params = {}
+
 		#save parameters generated
 		temp_parameters = [[loss, alpha, max_iter, tol]]
-
+		
 		#discritize data
 		if (int(self.dataset) == 2 or int(self.dataset) == 3):
 			#0.2 for eh results on dataset 2/3
@@ -186,7 +104,7 @@ class Methods:
 		#extract training time
 		t1 = time.time()
 		clf.fit(X_train, y_train)
-		params["train_time"] = time.time() -t1
+		params["train_time"] = time.time() - t1
 
 		#extract statistics
 		params = stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
@@ -196,7 +114,7 @@ class Methods:
 		params["dataset"] = self.dataset
 		params["ref"] = name 
 		params["parameters"] = temp_parameters
-		params["aug"]  = self.aug
+		params["aug"]  = False
 		params["type"] = "sgd"
 		params["imsize"] = self.imsize
 
@@ -255,90 +173,14 @@ class Methods:
 		params["dataset"] 		= self.dataset
 		params["ref"] 			= name 
 		params["parameters"] 	= temp_parameters
-		params["aug"]  			= self.aug
+		params["aug"]  			= False
 		params["type"] 			= "svm"
 
 		name = "Algorithm_DB/svm_" + self.time_string() + ".pkl"
 
 		#joblib.dump(clf, name)
 		self.save_model_to_db(params)
-
-	def cnn_method(self, image_vector, label_vector, parameters):
-		# l2
-		# loss
-		# dropout 
-		# opt 
-		# batch_size
-		# epochs 
-		# activations 
-		
-		batch_size = 10
-		epochs = 100
-
-		opt = "adam"	
-		loss_func = f1_loss
-		loss_func = 'binary_crossentropy'
-		
-		params = {}
-		temp_parameters = [[opt, loss_func, epochs, batch_size]]
-
-		sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
-
-		label_vector = label_vector.astype(int)
-		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
-		
-		#train_len = len(y_train)
-
-		"""
-		#if(self.aug == True):
-			#abstract this so make it more possible to make more custom architectures
-			model, pars = cnn_basic("wide", 3, flat = True)
-			temp_parameters[0].append(pars)
-
-			model.compile(optimizer=opt, loss= loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
-			p = Augmentor.Pipeline()
-
-			p.rotate(probability=0.5, max_left_rotation=2, max_right_rotation=2)
-			p.flip_left_right(probability=0.5)
-			p.flip_top_bottom(probability=0.5)
-			p.random_distortion(probability=0.3, grid_width=4, grid_height=4, magnitude=2)
-			
-			g = p.keras_generator_from_array(X_train, y_train, batch_size =batch_size)
-
-			t1 = time.time()
-			history = model.fit_generator(g, steps_per_epoch = train_len/batch_size, epochs = epochs, verbose = 1)
-			params["train_time"] = time.time() - t1
-
-		"""
-		#else: 
-		#make wider parameters or generate them 
-		model = cnn_basic(self.imsize)
-		#model, pars = nn_generator("narrow", 3, flat = False)
-		#temp_parameters[0].append(pars)
-		
-		model.compile(optimizer=opt, loss = loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
-		#model.compile(optimizer=opt, loss= loss_func,  metrics=['accuracy'])
-
-		t1 = time.time()
-		history = model.fit(X_train.reshape(-1,self.imsize, self.imsize, 1),y_train , batch_size = batch_size, epochs = epochs, verbose = self.verbose)
-		params["train_time"] = time.time() - t1
-		
-
-		name = "AlgorithmDB/cnn_" + self.time_string() + ".pkl"
-
-		params = stats(model, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
-		print(params)
-		"""
-		#params["dataset"] = self.dataset
-		#params["ref"] = name 
-		#params["parameters"] = temp_parameters
-		#params["aug"]  = self.aug
-		#params["type"] = "cnn"
-		
-		self.save_model_to_db(params)	
-		#add model dump beyond certain parameters
-		"""
-
+	
 	def xgboost_method(self, image_vector, label_vector, parameters):
 		###Parameters###
 		# learning_rate 		learning rate for iterations def 0.01
@@ -355,18 +197,18 @@ class Methods:
 		# silent = false
 
 
-		objective ="binary:logistic"
+		objective 		= "binary:logistic"
 		colsample_bytree = 0.8
-		learning_rate = 0.1
-		n_estimators = 100
-		alpha = 0
-		max_depth = 10
-		lamb = 0
-		gamma = 0
-		n_jobs = 1
-		subsample = 1
-		tol = 1e-4
-
+		learning_rate 	= 0.1
+		n_estimators 	= 100
+		alpha 			= 0
+		max_depth 		= 10
+		lamb 			= 0
+		gamma 			= 0
+		n_jobs 			= 1
+		subsample 		= 1
+		tol 			= 1e-4
+		params = {}
 
 		if (int(self.dataset) == 2 or int(self.dataset) == 3):
 			label_vector = np.rint(label_vector)
@@ -425,7 +267,4 @@ class Methods:
 			name = "AlgorithmDB/rf_" + self.time_string() + ".pkl"
 			#joblib.dump(clf, name)comments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zah
 			#self.save_model_to_db(name, parms)
-	def resnet_method(self, image_vector, label_vector, parameters):
-		print("import resnet")
-	def lenet_method(self, image_vector, label_vector, parameters):
-		print("import linnet")
+
