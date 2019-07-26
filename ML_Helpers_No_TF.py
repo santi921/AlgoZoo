@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
 from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score, confusion_matrix
 from sklearn.model_selection import cross_val_score
 
@@ -8,9 +7,6 @@ from sklearn.model_selection import cross_val_score
 def stats(clf,image_vector, label_vector, X_train, X_test, y_train, y_test, train_time):
 
 	y_pred = clf.predict(X_test)
-	probs = clf.predict_proba(X_test)
-	preds = probs[:,1]
-	#rf parameter definition 
 	parms = {}
 
 	#accuracy as a measure of goodness

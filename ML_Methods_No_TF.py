@@ -104,13 +104,13 @@ class Methods:
 		#extract training time
 		t1 = time.time()
 		clf.fit(X_train, y_train)
-		params["train_time"] = time.time() - t1
-
+		time_temp = time.time() - t1
 		#extract statistics
-		params = stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
+		params = stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, time_temp)
 		name = "Algorithm_DB/sgd_" + self.time_string() + ".pkl"
 
 		#save parameters to dictionary
+		params["train_time"] = time_temp
 		params["dataset"] = self.dataset
 		params["ref"] = name 
 		params["parameters"] = temp_parameters
@@ -165,20 +165,19 @@ class Methods:
 		#training time
 		t1 = time.time()
 		clf.fit(X_train, y_train)
-		params["train_time"] = time.time() - t1
+		time_temp = str(time.time() - t1)
 
-		params = stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
+		params = stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, time_temp)
 		name = "Algorithm_DB/svm_" + self.time_string() + ".pkl"
-
+		params["train_time"] = time_temp
 		params["dataset"] 		= self.dataset
 		params["ref"] 			= name 
 		params["parameters"] 	= temp_parameters
 		params["aug"]  			= False
 		params["type"] 			= "svm"
 
-		name = "Algorithm_DB/svm_" + self.time_string() + ".pkl"
 
-		#joblib.dump(clf, name)
+		joblib.dump(clf, name)
 		self.save_model_to_db(params)
 	
 	def xgboost_method(self, image_vector, label_vector, parameters):
@@ -224,11 +223,12 @@ class Methods:
 		
 		t1 = time.time()
 		gb.fit(X_train,y_train)
-		params["train_len"] = time.time() - t1
+		time_temp = time.time() - t1
 		name = "Algorithm_DB/xgb_" + self.time_string() + ".pkl"
 
 
-		params = stats(gb, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
+		params = stats(gb, image_vector, label_vector, X_train, X_test, y_train, y_test, time_temp)
+		params["train_time"] = time_temp
 		params["dataset"] = self.dataset
 		params["ref"] = name 
 		params["parameters"] = temp_parameters
@@ -236,8 +236,8 @@ class Methods:
 		params["type"] = "xgb"
 
 
-		#joblib.dump(clf, name)
-		#self.save_model_to_db(params)
+		joblib.dump(clf, name)
+		self.save_model_to_db(params)
 
 	def random_forest_method(self, image_vector, label_vector, parameters):
 			# n_estimators 			number of estimators, def 50
@@ -260,11 +260,17 @@ class Methods:
 			#obtaining training time
 			t1 = time.time()
 			clf.fit(X_train,y_train)
-			params["train_time"] = time.time() - t1
+			time_temp = time.time() - t1
 			#generate vital stats
-			params = self.stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, params["train_time"])
+			params = self.stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, time)
 			#unique name identifier
-			name = "AlgorithmDB/rf_" + self.time_string() + ".pkl"
-			#joblib.dump(clf, name)comments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zah
-			#self.save_model_to_db(name, parms)
+			name = "Algorithm_DB/rf_" + self.time_string() + ".pkl"
+			params["train_time"] = time_temp
+			params["dataset"] 		= self.dataset
+			params["ref"] 			= name 
+			params["parameters"] 	= temp_parameters
+			params["aug"]  			= False
+			params["type"] 			= "svm"			
+			joblib.dump(clf, name)
+			self.save_model_to_db(name, parms)
 

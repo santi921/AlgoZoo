@@ -110,9 +110,9 @@ if  __name__=="__main__":
 	parser.add_argument("--augment", action = 'store_true', dest= "aug", default = False, help = "Augment data using basic transformations")
 	parser.add_argument('-custom',action="store",  dest = 'parameters', default = {}, type=json.loads)
 	parser.add_argument("-iter", action = "store", dest = "iterations",default = 1,  help= "number of random models tested")
-	parser.add_argument("-imsize", action = "store", dest = "imsize",default = 128,  help= "number of models")
+	parser.add_argument("-imsize", action = "store", dest = "imsize",default = 256,  help= "number of models")
 	parser.add_argument("-epochs", action = "store", dest = "epochs",default = 50,  help= "epochs")
-	parser.add_argument("-dataset", action = "store", dest = "dataset", default = 2, help = "choose which dataset for training")
+	parser.add_argument("-dataset", action = "store", dest = "dataset", default = 3, help = "choose which dataset for training")
 	parser.add_argument("-transfer", action = "store", dest = "transfer", default = 1, help = "pretrained networks")
 
 	results = parser.parse_args()
