@@ -142,7 +142,7 @@ def cnn_basic(size):
 	model = keras.Sequential()
 	# input: 100x100 images with 3 channels -> (100, 100, 3) tensors.
 	# this applies 32 convolution filters of size 3x3 each.
-	model.add(keras.layers.Conv2D(16, (3, 3), activation='relu', input_shape=(size, size, 1)))
+	model.add(keras.layers.Conv2D(16, (10, 10), activation='relu', input_shape=(size, size, 1)))
 	model.add(keras.layers.Conv2D(16, (3, 3), activation='relu'))
 	model.add(keras.layers.MaxPooling2D(pool_size=(2, 2)))
 	model.add(keras.layers.Dropout(0.25))

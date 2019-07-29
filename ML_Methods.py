@@ -24,7 +24,7 @@ from keras.utils import to_categorical
 from keras.wrappers.scikit_learn import KerasClassifier
 from keras.preprocessing.image import ImageDataGenerator
 from keras.models import model_from_json
-
+#from keras.applications import resnet_v2
 
 from ML_Helpers import stats, f1_loss, f1, f1_m, precision_m, recall_m, nn_generator, cnn_basic
 
@@ -313,7 +313,10 @@ class Methods:
 
 		label_vector = label_vector.astype(int)
 		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
-		
+
+		X_train = X_train.reshape(-1,self.imsize, self.imsize, 1)
+		X_test = X_test.reshape(-1,self.imsize, self.imsize, 1)
+
 		#train_len = len(y_train)
 
 		"""
@@ -338,16 +341,11 @@ class Methods:
 
 		"""
 		#else: 
-		#make wider parameters or generate them 
-		model = cnn_basic(self.imsize)
-		#model, pars = nn_generator("narrow", 3, flat = False)
-		#temp_parameters[0].append(pars)
-		
+		model = cnn_basic(self.imsize)		
 		model.compile(optimizer=opt, loss = loss_func,  metrics=['acc',f1_m, precision_m, recall_m])
-		#model.compile(optimizer=opt, loss= loss_func,  metrics=['accuracy'])
 
 		t1 = time.time()
-		history = model.fit(X_train.reshape(-1,self.imsize, self.imsize, 1),y_train , batch_size = batch_size, epochs = epochs, verbose = self.verbose)
+		history = model.fit(X_train,y_train , batch_size = batch_size, epochs = epochs, verbose = self.verbose)
 		time_temp = time.time() - t1
 		
 
@@ -370,7 +368,7 @@ class Methods:
 				f.write(model.to_json())
 		#add model dump beyond certain parameters
 		
-	
+
 
 	def nn_method(self, image_vector, label_vector, parameters):
 		# l2
@@ -451,7 +449,12 @@ class Methods:
 				f.write(model.to_json())
 		#add model dump beyond certain parameters
 
-	def resnet_method(self, image_vector, label_vector, parameters):
-		print("import resnet")
-	def lenet_method(self, image_vector, label_vector, parameters):
-		print("import linnet")
+#	def resnet_method(self, image_vector, label_vector, parameters):
+#		print("import resnet")
+
+#		resnext.ResNeXt50(include_top=True, weights='imagenet', input_tensor=None, input_shape=None, pooling=None, classes=1000)
+#
+
+
+#	def lenet_method(self, image_vector, label_vector, parameters):
+#		print("import linnet")
