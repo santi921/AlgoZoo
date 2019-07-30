@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 #image processor and retrival might be made into a separate module 
 
-def imaging_processor(dataset, size = 128., tf_aug = False):
+def imaging_processor(dataset, size = 256., tf_aug = False):
 
 	list_label_images= [] 
 	list_images = []
@@ -76,6 +76,18 @@ def model_branch(results, image_vector, label_vector):
 		elif(results.rf):
 			print("Loading Random Forest")
 			results.type_train = "rf"
+			ml = ML_Methods.Methods(results)
+			ml.iterator(image_vector, label_vector)
+
+		elif(results.resnet):
+			print("Loading Resnet")
+			results.type_train = "resnet"
+			ml = ML_Methods.Methods(results)
+			ml.iterator(image_vector, label_vector)
+
+		elif(results.lenet):
+			print("Loading Lenet Structure")
+			results.type_train = "lenet"
 			ml = ML_Methods.Methods(results)
 			ml.iterator(image_vector, label_vector)
 

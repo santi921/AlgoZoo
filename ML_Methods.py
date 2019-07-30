@@ -19,14 +19,15 @@ from sklearn.naive_bayes import ComplementNB
 from sklearn import ensemble
 from sklearn.preprocessing import MinMaxScaler
 
-from keras import regularizers
+from keras import regularizers, layers
 from keras.utils import to_categorical
 from keras.wrappers.scikit_learn import KerasClassifier
 from keras.preprocessing.image import ImageDataGenerator
 from keras.models import model_from_json
-#from keras.applications import resnet_v2
 
-from ML_Helpers import stats, f1_loss, f1, f1_m, precision_m, recall_m, nn_generator, cnn_basic
+from ML_Helpers import stats, f1_loss, f1, f1_m, precision_m, recall_m, nn_generator, cnn_basic, lenet
+
+import keras_resnet.models 
 
 class Methods: 
 
@@ -60,6 +61,11 @@ class Methods:
 				self.cnn_method(image_vector, label_vector, self.parameters)
 			elif(self.type_train == "rf"):
 				self.random_forest_method(image_vector, label_vector, self.parameters)
+			elif(self.type_train == "lenet"):
+				self.lenet_method(image_vector, label_vector, self.parameters)
+			elif(self.type_train == "resnet"):
+				self.resnet_method(image_vector, label_vector, self.parameters)
+			
 			else:
 				print("INVALID MODEL TYPE")
 
@@ -84,9 +90,6 @@ class Methods:
 		now = datetime.datetime.now()
 		time_nice = str(now.year) +"-"+ str(now.month) +"-"+ str(now.day) +"-"+ str(now.hour) +"-"+ str(now.minute) +"-" + str(now.second)
 		return time_nice
-
-
-	
 	
 	def sgd_method(self, image_vector, label_vector, parameters):
 		
@@ -287,9 +290,6 @@ class Methods:
 			params["type"] 			= "svm"			#joblib.dump(clf, name)comments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zah
 			#self.save_model_to_db(name, parms)
 
-
-
-
 	def cnn_method(self, image_vector, label_vector, parameters):
 		# l2
 		# loss
@@ -368,8 +368,6 @@ class Methods:
 				f.write(model.to_json())
 		#add model dump beyond certain parameters
 		
-
-
 	def nn_method(self, image_vector, label_vector, parameters):
 		# l2
 		# loss
@@ -449,12 +447,26 @@ class Methods:
 				f.write(model.to_json())
 		#add model dump beyond certain parameters
 
-#	def resnet_method(self, image_vector, label_vector, parameters):
-#		print("import resnet")
+	def resnet_method(self, image_vector, label_vector, parameters):
+		
+		#pull model from api
+		shape = (self.imsize, self.imsize, 1)
+		x = layers.Input(shape)
+		classes = 1
+		batch_size = 10
+		
+		#manipulate data into desired format
+		label_vector = label_vector.astype(int)
+		#label_vector = keras.utils.np_utils.to_categorical(training_y)
+		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
+		
+		X_train = X_train.reshape(-1,self.imsize, self.imsize, 1)
+		X_test = X_test.reshape(-1,self.imsize, self.imsize, 1)
 
-#		resnext.ResNeXt50(include_top=True, weights='imagenet', input_tensor=None, input_shape=None, pooling=None, classes=1000)
-#
+		model = keras_resnet.models.ResNet50(x, classes=classes)
+		model.compile("adam", "binary_crossentropy", metrics=['accuracy',f1_m, precision_m, recall_m])
+		history = model.fit(X_train, y_train, batch_size = batch_size, epochs = self.epochs, verbose = self.verbose)
 
 
-#	def lenet_method(self, image_vector, label_vector, parameters):
-#		print("import linnet")
+	def lenet_method(self, image_vector, label_vector, parameters):
+		print("import lenet")

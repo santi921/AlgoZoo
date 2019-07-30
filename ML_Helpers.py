@@ -164,3 +164,17 @@ def cnn_basic(size):
 	#score = model.evaluate(x_test, y_test, batch_size=32)
 
 	return model
+
+
+def lenet(size):
+	model = keras.Sequential()
+	model.add(keras.layers.Conv2D(6, kernel_size=(5, 5), strides=(1, 1), activation="tanh", input_shape=(size,size,1), padding="same"))
+	model.add(keras.layers.AveragePooling2D(pool_size=(2, 2), strides=(1, 1), padding="valid"))
+	model.add(keras.layers.Conv2D(16, kernel_size=(5, 5), strides=(1, 1), activation="tanh", padding="valid"))
+	model.add(keras.layers.AveragePooling2D(pool_size=(2, 2), strides=(2, 2), padding="valid"))
+	model.add(keras.layers.Conv2D(120, kernel_size=(5, 5), strides=(1, 1), activation="tanh", padding="valid"))
+	model.add(keras.layers.Flatten())
+	model.add(keras.layers.Dense(84, activation="tanh"))
+	model.add(keras.layers.Dense(1, activation="softmax"))
+
+	return model
