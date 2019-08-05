@@ -5,6 +5,7 @@ import time
 import datetime
 import numpy as np
 import tensorflow as tf
+import tensorflow.keras as keras
 import matplotlib.pyplot as plt
 import pandas as pd
 import Augmentor 
@@ -19,11 +20,11 @@ from sklearn.naive_bayes import ComplementNB
 from sklearn import ensemble
 from sklearn.preprocessing import MinMaxScaler
 
-from keras import regularizers, layers
-from keras.utils import to_categorical
-from keras.wrappers.scikit_learn import KerasClassifier
-from keras.preprocessing.image import ImageDataGenerator
-from keras.models import model_from_json
+from tensorflow.keras import regularizers, layers
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import model_from_json
 
 from ML_Helpers import stats, f1_loss, f1, f1_m, precision_m, recall_m, nn_generator, cnn_basic, lenet
 
@@ -68,7 +69,6 @@ class Methods:
 			
 			else:
 				print("INVALID MODEL TYPE")
-
 	
 	def save_model_to_db(self, parms):
 		#opens database and deposits statistics to database
@@ -154,7 +154,7 @@ class Methods:
 		loss_array 	= ['linear','rbf','poly','sigmoid']
 		loss 		= loss_array[np.random.randint(0, 3)]
 		C 			= self.parameter_generator(5,-5,"exp")
-		max_iter 	=  self.parameter_generator(3,6,"exp")
+		max_iter 	= self.parameter_generator(3,6,"exp")
 		degree 		= np.random.randint(3, 10)		
 		tol 		= self.parameter_generator(-3,-8,"exp")
 		coef0 		= 0
@@ -166,12 +166,14 @@ class Methods:
 		if (int(self.dataset) == 2 or int(self.dataset) == 3):
 			label_vector = np.rint(label_vector)
 			#print("percent positive: " + str(np.sum(label_vector)/len(label_vector)))
+		
 		#split
 		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)	
+		#scaling for better performance on svm
 		scaling = MinMaxScaler(feature_range=(-1,1)).fit(X_train)
 		X_train = scaling.transform(X_train)
 		X_test = scaling.transform(X_test)
-		#TODO PARAMETERS HERE
+	
 		if(loss == "poly"):
 			clf = svm.SVC(kernel = loss, C = C, probability = True, tol = tol,verbose = self.verbose, degree = degree)		
 		else:
@@ -196,66 +198,6 @@ class Methods:
 		#joblib.dump(clf, name)
 		self.save_model_to_db(params)
 	
-	def xgboost_method(self, image_vector, label_vector, parameters):
-		###Parameters###
-		# learning_rate 		learning rate for iterations def 0.01
-		# max_depth 			tree depth def 4
-		# subsample 			percentage of samples used in any round def 0.8
-		# colsample_bytree 		percentage of features used per tree def 1
-		# n_estimators 			number of trees to build def 100
-		# objective 			loss function def "binary:logistic", "binary:logitraw", "binary:hinge"
-		# gamma  				controls tree splitting, def 0 
-		# alpha = L1 			l1 regularization def 0 
-		# lambda = l2 			l2 regularization def 0
-		# reg_alpha = 0.3
-		# tol  					tolerance def 1e-3
-		# silent = false
-
-
-		objective 			= "binary:logistic"
-		colsample_bytree 	= 0.8
-		learning_rate 		= 0.1
-		n_estimators 		= 100
-		alpha 				= 0
-		max_depth 			= 10
-		lamb 				= 0
-		gamma 				= 0
-		n_jobs 				= 1
-		subsample 			= 1
-		tol 				= 1e-4
-		params = {}
-
-		if (int(self.dataset) == 2 or int(self.dataset) == 3):
-			label_vector = np.rint(label_vector)
-			#print("percent positive: " + str(np.sum(label_vector)/len(label_vector)))
-
-
-		temp_parameters = {"objective":objective, "learning_rate": learning_rate, "n_estimators": n_estimators, "max_depth": max_depth,"colsample_bytree": colsample_bytree, "alpha": alpha, "gamma":gamma, "lambda":lamb, "subsample": subsample}
-		#temp_parameters = {'objective':'binary:logistic', 'n_estimators':2}
-
-		#xg_clas = XGBClassifier()
-		gb = ensemble.GradientBoostingClassifier(n_estimators=n_estimators, random_state=0, verbose =1)
-		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)	
-		
-		t1 = time.time()
-		gb.fit(X_train,y_train)
-		time_temp = time.time() - t1
-
-		name = "Algorithm_DB/xgb_" + self.time_string() + ".pkl"
-
-
-		params = stats(gb, image_vector, label_vector, X_train, X_test, y_train, y_test, time_temp)
-		params["train_time"] 	= time_temp
-		params["dataset"] 		= self.dataset
-		params["ref"] 			= name 
-		params["parameters"] 	= temp_parameters
-		params["aug"]  			= False
-		params["type"] 			= "xgb"
-
-
-		#joblib.dump(clf, name)
-		#self.save_model_to_db(params)
-
 	def random_forest_method(self, image_vector, label_vector, parameters):
 			# n_estimators 			number of estimators, def 50
 			# max_depth 			depth of decision trees, def 5
@@ -263,6 +205,13 @@ class Methods:
 			# verbose 				def 0
 			
 			#define baseline values for each term 
+
+			n_estimators 	= self.parameter_generator(50,150,"yeet")
+			max_depth 		= self.parameter_generator(3,15,"yeet")
+			max_features  	= self.parameter_generator(8,16,"yeet")
+			n_jobs = 10 
+
+			temp_parameters = [n_estimators,max_depth,max_features,n_jobs]
 
 
 			#these algorithms require discrete labels
@@ -272,14 +221,15 @@ class Methods:
 
 			X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
 
-			clf = RandomForestClassifier(n_estimators = 50, n_jobs=10)
+			clf = RandomForestClassifier(n_estimators = n_estimators, n_jobs=n_jobs, max_features = max_features, max_depth = max_depth, verbose = self.verbose)
 
 			#obtaining training time
 			t1 = time.time()
 			clf.fit(X_train,y_train)
 			time_temp = time.time() - t1
 			#generate vital stats
-			params = self.stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, time, False)
+			params = stats(clf, image_vector, label_vector, X_train, X_test, y_train, y_test, time_temp, False)
+			print(params)
 			#unique name identifier
 			name = "Algorithm_DB/rf_" + self.time_string() + ".pkl"
 			params["train_time"] = time_temp
@@ -287,8 +237,8 @@ class Methods:
 			params["ref"] 			= name 
 			params["parameters"] 	= temp_parameters
 			params["aug"]  			= False
-			params["type"] 			= "svm"			#joblib.dump(clf, name)comments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zah
-			#self.save_model_to_db(name, parms)
+			params["type"] 			= "rf"			#joblib.dump(clf, name)comments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zahcomments/cgeh9s/bayern_alledgedly_want_to_sign_zah
+			self.save_model_to_db(params)
 
 	def cnn_method(self, image_vector, label_vector, parameters):
 		# l2
@@ -447,12 +397,74 @@ class Methods:
 				f.write(model.to_json())
 		#add model dump beyond certain parameters
 
+
+
+
+	def xgboost_method(self, image_vector, label_vector, parameters):
+		###Parameters###
+		# learning_rate 		learning rate for iterations def 0.01
+		# max_depth 			tree depth def 4
+		# subsample 			percentage of samples used in any round def 0.8
+		# colsample_bytree 		percentage of features used per tree def 1
+		# n_estimators 			number of trees to build def 100
+		# objective 			loss function def "binary:logistic", "binary:logitraw", "binary:hinge"
+		# gamma  				controls tree splitting, def 0 
+		# alpha = L1 			l1 regularization def 0 
+		# lambda = l2 			l2 regularization def 0
+		# reg_alpha = 0.3
+		# tol  					tolerance def 1e-3
+		# silent = false
+
+
+		objective 			= "binary:logistic"
+		colsample_bytree 	= 0.8
+		learning_rate 		= 0.1
+		n_estimators 		= 100
+		alpha 				= 0
+		max_depth 			= 10
+		lamb 				= 0
+		gamma 				= 0
+		n_jobs 				= 1
+		subsample 			= 1
+		tol 				= 1e-4
+		params = {}
+
+		if (int(self.dataset) == 2 or int(self.dataset) == 3):
+			label_vector = np.rint(label_vector)
+			#print("percent positive: " + str(np.sum(label_vector)/len(label_vector)))
+
+
+		temp_parameters = {"objective":objective, "learning_rate": learning_rate, "n_estimators": n_estimators, "max_depth": max_depth,"colsample_bytree": colsample_bytree, "alpha": alpha, "gamma":gamma, "lambda":lamb, "subsample": subsample}
+		#temp_parameters = {'objective':'binary:logistic', 'n_estimators':2}
+
+		#xg_clas = XGBClassifier()
+		gb = ensemble.GradientBoostingClassifier(n_estimators=n_estimators, random_state=0, verbose =1)
+		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)	
+		
+		t1 = time.time()
+		gb.fit(X_train,y_train)
+		time_temp = time.time() - t1
+
+		name = "Algorithm_DB/xgb_" + self.time_string() + ".pkl"
+
+
+		params = stats(gb, image_vector, label_vector, X_train, X_test, y_train, y_test, time_temp)
+		params["train_time"] 	= time_temp
+		params["dataset"] 		= self.dataset
+		params["ref"] 			= name 
+		params["parameters"] 	= temp_parameters
+		params["aug"]  			= False
+		params["type"] 			= "xgb"
+
+
+		#joblib.dump(clf, name)
+		#self.save_model_to_db(params)
+
 	def resnet_method(self, image_vector, label_vector, parameters):
 		
 		#pull model from api
-		shape = (self.imsize, self.imsize, 1)
-		x = layers.Input(shape)
-		classes = 1
+		shape, classes = (self.imsize, self.imsize, 1), 1
+		x = keras.layers.Input(shape)
 		batch_size = 10
 		
 		#manipulate data into desired format
@@ -464,9 +476,9 @@ class Methods:
 		X_test = X_test.reshape(-1,self.imsize, self.imsize, 1)
 
 		model = keras_resnet.models.ResNet50(x, classes=classes)
-		model.compile("adam", "binary_crossentropy", metrics=['accuracy',f1_m, precision_m, recall_m])
+		model.compile("adam", "binary_crossentropy", metrics=['accuracy'])
+		#f1_m, precision_m, recall_m
 		history = model.fit(X_train, y_train, batch_size = batch_size, epochs = self.epochs, verbose = self.verbose)
-
 
 	def lenet_method(self, image_vector, label_vector, parameters):
 		print("import lenet")

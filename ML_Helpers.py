@@ -6,9 +6,9 @@ from sklearn.model_selection import cross_val_score
 
 import tensorflow as tf
 from tensorflow import keras
-from keras import backend as K
-from keras import regularizers
-from keras.models import model_from_json
+from tensorflow.keras import backend as K
+from tensorflow.keras import regularizers
+from tensorflow.keras.models import model_from_json
 
 
 #custom metric implemented for tensorflow
@@ -61,10 +61,10 @@ def f1_loss(y_true, y_pred):
     f1 = tf.where(tf.is_nan(f1), tf.zeros_like(f1), f1)
     return 1 - K.mean(f1)
 
-def stats(clf,image_vector, label_vector, X_train, X_test, y_train, y_test, train_time, tf):
+def stats(clf,image_vector, label_vector, X_train, X_test, y_train, y_test, train_time, tf_cond):
 	
 	#predict function for tf is different
-	if (tf == False): 
+	if (tf_cond == False): 
 		#probs = clf.predict_proba(X_test)
 		y_pred = clf.predict(X_test)
 		train_pred = clf.predict(X_train)
@@ -95,7 +95,7 @@ def stats(clf,image_vector, label_vector, X_train, X_test, y_train, y_test, trai
 
 
 	#to save on this computationally expensive step if the model is not accurate 
-	cond = (parms['train_acc'] > 0.8 and tf == False and train_time < 500)
+	cond = (parms['train_acc'] > 0.8 and tf_cond == False and train_time < 500)
 	if(cond):	
 		print("k-fold, slow performance")
 		scores = cross_val_score(clf, image_vector, label_vector, cv=6)
