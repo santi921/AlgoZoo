@@ -20,11 +20,15 @@ from sklearn.naive_bayes import ComplementNB
 from sklearn import ensemble
 from sklearn.preprocessing import MinMaxScaler
 
+from keras_applications.imagenet_utils import _obtain_input_shape 
+
 from tensorflow.keras import regularizers, layers
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import model_from_json
+from keras.applications.resnet50 import ResNet50
+from tensorflow.keras.layers import Input
 
 from ML_Helpers import stats, f1_loss, f1, f1_m, precision_m, recall_m, nn_generator, cnn_basic, lenet
 
@@ -397,9 +401,6 @@ class Methods:
 				f.write(model.to_json())
 		#add model dump beyond certain parameters
 
-
-
-
 	def xgboost_method(self, image_vector, label_vector, parameters):
 		###Parameters###
 		# learning_rate 		learning rate for iterations def 0.01
@@ -417,16 +418,16 @@ class Methods:
 
 
 		objective 			= "binary:logistic"
-		colsample_bytree 	= 0.8
-		learning_rate 		= 0.1
+		colsample_bytree 	= 0.5 + np.random.uniform(0.0, 0.5)
+		learning_rate 		= self.parameter_generator(-3,3,"exp")
+		max_depth 			= self.parameter_generator(0,10,"lin")
 		n_estimators 		= 100
 		alpha 				= 0
-		max_depth 			= 10
 		lamb 				= 0
 		gamma 				= 0
 		n_jobs 				= 1
 		subsample 			= 1
-		tol 				= 1e-4
+		tol 				= 1e-6
 		params = {}
 
 		if (int(self.dataset) == 2 or int(self.dataset) == 3):
@@ -458,15 +459,51 @@ class Methods:
 
 
 		#joblib.dump(clf, name)
-		#self.save_model_to_db(params)
+		self.save_model_to_db(params)
 
 	def resnet_method(self, image_vector, label_vector, parameters):
 		
 		#pull model from api
-		shape, classes = (self.imsize, self.imsize, 1), 1
+		shape, classes = (3, self.imsize, self.imsize), 1
 		x = keras.layers.Input(shape)
-		batch_size = 10
+		batch_size = 5
 		
+		#manipulate data into desired format
+		label_vector = label_vector.astype(int)
+
+		#label_vector = keras.utils.np_utils.to_categorical(training_y)
+		X_train, X_test, y_train, y_test = train_test_split(image_vector, label_vector, test_size=0.2)
+		
+		print(np.shape(X_train))
+		#broad inst import package
+		#model = keras_resnet.models.ResNet50(x, classes=classes)
+
+		X_train = X_train.reshape(-1, self.imsize, self.imsize, 1)
+		X_test = X_test.reshape(-1, self.imsize, self.imsize, 1)
+		X_train = np.repeat(X_train, 3,  axis = 3)
+		X_test = np.repeat(X_test, 3,  axis = 3)
+		print(np.shape(X_train))
+
+		#img_input = Input(shape=shape)
+		model = keras.applications.resnet50.ResNet50(include_top=False, weights='imagenet', input_shape=shape, classes = 1)
+		#build custom resnet 
+		model.trainable = True 
+		for layer in model.layers:
+			layer.trainable = True
+
+		model.summary()
+		
+
+		model.compile("adam", "binary_crossentropy", metrics=['accuracy'])
+		#f1_m, precision_m, recall_m
+		history = model.fit(X_train, y_train, batch_size = batch_size, epochs = self.epochs, verbose = self.verbose)
+
+	def lenet_method(self, image_vector, label_vector, parameters):
+		#pull model from api
+		shape, classes = (self.imsize, self.imsize, 3), 1
+		x = keras.layers.Input(shape)
+		batch_size = 5
+
 		#manipulate data into desired format
 		label_vector = label_vector.astype(int)
 		#label_vector = keras.utils.np_utils.to_categorical(training_y)
@@ -475,10 +512,14 @@ class Methods:
 		X_train = X_train.reshape(-1,self.imsize, self.imsize, 1)
 		X_test = X_test.reshape(-1,self.imsize, self.imsize, 1)
 
-		model = keras_resnet.models.ResNet50(x, classes=classes)
+		#broad inst import package
+		#model  =keras_resnet.models.ResNet50(x, classes=classes)
+		# build function
+		model = lenet(self.imsize)
+
 		model.compile("adam", "binary_crossentropy", metrics=['accuracy'])
 		#f1_m, precision_m, recall_m
-		history = model.fit(X_train, y_train, batch_size = batch_size, epochs = self.epochs, verbose = self.verbose)
+		#img_conc = Concatenate()([X_train, X_train, X_train])    
 
-	def lenet_method(self, image_vector, label_vector, parameters):
-		print("import lenet")
+		history = model.fit(img_conc, y_train, batch_size = batch_size, epochs = self.epochs, verbose = self.verbose)
+

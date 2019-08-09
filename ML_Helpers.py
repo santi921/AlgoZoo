@@ -178,3 +178,6 @@ def lenet(size):
 	model.add(keras.layers.Dense(1, activation="softmax"))
 
 	return model
+
+
+d
